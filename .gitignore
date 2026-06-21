@@ -1,0 +1,15 @@
+__pycache__
+.env
+node_modules
+.next
+venv
+*.pyc
+.DS_Store
+dist/
+build/
+*.egg-info
+.pytest_cache
+.coverage
+htmlcov/
+qdrant_storage/
+grafana_data/
