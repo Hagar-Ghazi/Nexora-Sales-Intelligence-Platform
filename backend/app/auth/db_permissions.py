@@ -104,12 +104,18 @@ def extract_table_names(sql: str) -> set[str]:
     matches = re.findall(pattern, sql, re.IGNORECASE)
     return set(matches)
 
+
 def extract_columns_for_table(sql: str, table: str) -> set[str]:
-    pattern = rf'{table}\.([a-zA-Z_][a-zA-Z0-9_]*)'
-    explicit = set(re.findall(pattern, sql, re.IGNORECASE))
     if re.search(r'SELECT\s+\*', sql, re.IGNORECASE):
         return {"*"}
-    return explicit
+        
+    all_table_cols = set()
+    for col_def in ALL_TABLE_SCHEMAS.get(table, []):
+        col_name = col_def.split()[0].lower()
+        all_table_cols.add(col_name)
+        
+    sql_words = set(re.findall(r'\b[a-zA-Z_][a-zA-Z0-9_]*\b', sql.lower()))
+    return sql_words.intersection(all_table_cols)
 
 def validate_query_permissions(sql: str, role: str) -> tuple[bool, str]:
     perms = DATABASE_PERMISSIONS.get(role, {})

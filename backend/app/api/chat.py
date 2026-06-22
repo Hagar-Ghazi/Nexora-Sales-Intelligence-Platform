@@ -21,6 +21,7 @@ async def chat_endpoint(request: ChatRequest, user: UserContext = Depends(get_cu
     """
     async def event_generator():
         try:
+            tokens_streamed = False
             # We iterate over the stream of events from the LangGraph agent
             async for event in run_agent(request.message, user.user_id, user.role, request.conversation_id):
                 kind = event["event"]
@@ -32,6 +33,7 @@ async def chat_endpoint(request: ChatRequest, user: UserContext = Depends(get_cu
                     if node_name in ["llm_generation", "direct_response"]:
                         content = event["data"]["chunk"].content
                         if content:
+                            tokens_streamed = True
                             yield f"data: {json.dumps({'type': 'token', 'content': content})}\n\n"
                         
                 # Send progress updates to the UI so the user knows it's thinking!
@@ -41,12 +43,19 @@ async def chat_endpoint(request: ChatRequest, user: UserContext = Depends(get_cu
                         yield f"data: {json.dumps({'type': 'token', 'content': '*(⏳ Accessing Secure Database...)*\\n\\n'})}\n\n"
                     elif node_name == "hybrid_retrieval_node":
                         yield f"data: {json.dumps({'type': 'token', 'content': '*(⏳ Searching Documents...)*\\n\\n'})}\n\n"
-                    
-                # And finally, the complete state updates from the graph nodes
-                elif kind == "on_chain_end" and event["name"] == "agent":
-                    # This is the final state of the graph
-                    final_state = event["data"]["output"]
-                    yield f"data: {json.dumps({'type': 'final_state', 'state': final_state})}\n\n"
+                
+                # If we bypassed the LLM, manually stream the hardcoded answer at the end of the node
+                elif kind == "on_chain_end":
+                    node_name = event.get("name", "")
+                    if node_name in ["llm_generation", "direct_response"]:
+                        if not tokens_streamed:
+                            output = event.get("data", {}).get("output", {})
+                            if isinstance(output, dict) and "answer" in output:
+                                yield f"data: {json.dumps({'type': 'token', 'content': output['answer']})}\n\n"
+                    # And finally, the complete state updates from the graph nodes
+                    elif node_name == "agent":
+                        final_state = event["data"]["output"]
+                        yield f"data: {json.dumps({'type': 'final_state', 'state': final_state})}\n\n"
                     
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

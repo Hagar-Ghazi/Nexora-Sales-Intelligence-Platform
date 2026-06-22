@@ -107,11 +107,20 @@ def context_assembly_node(state: AgentState) -> dict:
             context_parts.append(f"Source {idx+1} ({chunk.get('source')}): {chunk.get('content')}")
             
     tools = state.get("tool_results", [])
+    valid_tools = False
     if tools:
-        context_parts.append("--- DATABASE/DATA ---")
         for tool in tools:
-            context_parts.append(f"[{tool.get('tool')}] Result: {tool.get('result')}")
-            
+            res = tool.get("result", "")
+            # Filter out empty results and errors from becoming "context"
+            if res and "The query returned no results" not in res and "Permission Denied" not in res and "Error:" not in res:
+                if not valid_tools:
+                    context_parts.append("--- DATABASE/DATA ---")
+                    valid_tools = True
+                context_parts.append(f"[{tool.get('tool')}] Result: {res}")
+                
+    if not context_parts:
+        return {"context": "No context available."}
+        
     return {"context": "\n".join(context_parts)}
 
 @traceable(name="llm_generation_node")
@@ -119,9 +128,13 @@ def llm_generation_node(state: AgentState) -> dict:
     query = state["query"]
     context = state.get("context", "No context available.")
     
+    if context == "No context available." or not context.strip():
+        answer = "I'm sorry, but I could not find any relevant information about that in the Nexora knowledge base or database. I cannot answer questions outside of our provided context."
+        return {"answer": answer, "messages": [AIMessage(content=answer)]}
+    
     llm = get_llm()
     messages = [
-        ("system", "You are Nexora, an intelligent enterprise sales assistant. Answer the user's question concisely using the context provided. Do not mention that you are an AI or using context. Just answer."),
+        ("system", "You are Nexora, an intelligent enterprise sales assistant. You MUST answer the user's question ONLY using the provided context. If the context does not contain the answer, you MUST say 'I cannot find information about that in our system.' DO NOT use your outside knowledge to answer off-topic questions. Do not mention that you are using context."),
         ("system", f"CONTEXT:\n{context}")
     ]
     messages.extend(state.get("messages", []))
@@ -131,12 +144,16 @@ def llm_generation_node(state: AgentState) -> dict:
     
     return {"answer": answer, "messages": [AIMessage(content=answer)]}
 
+
+
 @traceable(name="relevance_eval_node")
 def relevance_eval_node(state: AgentState) -> dict:
     # Evaluate if answer actually addresses query
     # Mock evaluation to always pass for speed right now
     score = 0.9
     return {"relevance_score": score}
+
+
 
 @traceable(name="explanation_builder_node")
 def explanation_builder_node(state: AgentState) -> dict:
@@ -148,16 +165,21 @@ def explanation_builder_node(state: AgentState) -> dict:
     }
     return {"explanation": exp}
 
+
+
 @traceable(name="direct_response_node")
 def direct_response_node(state: AgentState) -> dict:
     query = state["query"]
     intent = state.get("intent", "")
+    route = state.get("route", "")
     llm = get_llm()
     
-    if intent == "out_of_scope":
-        system_prompt = "You are Nexora, an intelligent enterprise sales assistant. The user has asked an out-of-scope question. Briefly and politely refuse to answer it. Do not recommend or offer any alternatives."
-    else:
-        system_prompt = "You are Nexora, an intelligent enterprise sales assistant. Keep your answer brief and conversational."
+    # If the Intent Classifier caught it, OR the Router deemed it an off-topic chitchat (and it's not a greeting)
+    if intent == "out_of_scope" or (route == "chitchat" and intent != "greeting"):
+        answer = "I'm sorry, but I am an enterprise assistant for Nexora. I can only answer questions about our specific products, sales data, and company policies. I cannot assist with outside topics like general software development, or hypothetical businesses."
+        return {"answer": answer, "explanation": {"type": "blocked"}, "messages": [AIMessage(content=answer)]}
+        
+    system_prompt = "You are Nexora, an intelligent enterprise sales assistant. Keep your answer brief and conversational."
         
     messages = [("system", system_prompt)]
     messages.extend(state.get("messages", []))

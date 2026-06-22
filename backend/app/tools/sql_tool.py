@@ -30,6 +30,7 @@ async def sql_query(question: str, user_id: str, user_role: str) -> str:
     llm = get_llm()
     prompt = f"""You are a PostgreSQL expert. Given the user's question, write a SQL query to answer it.
 Return ONLY the raw SQL query, no markdown, no explanation.
+If the user asks for data (like a specific column) that is NOT present in the provided schema, return EXACTLY the string: PERMISSION_DENIED
 
 DATABASE SCHEMA:
 {schema}
@@ -38,8 +39,11 @@ QUESTION: {question}
 SQL QUERY:"""
     
     response = llm.invoke(prompt)
-    content = response.content
+    content = response.content.strip()
     
+    if content == "PERMISSION_DENIED":
+        return "Permission Denied: You do not have permission to view the requested data fields."
+
     # Robustly extract SQL from markdown blocks if the LLM ignores the "no markdown" instruction
     match = re.search(r"```(?:sql)?\n?(.*?)\n?```", content, re.DOTALL | re.IGNORECASE)
     if match:
@@ -51,7 +55,7 @@ SQL QUERY:"""
     is_safe, safety_msg = validate_sql_safety(generated_sql)
     if not is_safe:
         return f"SQL Error: {safety_msg}"
-        
+
     # LAYER 3: Check Role Permissions
     is_allowed, perm_msg = validate_query_permissions(generated_sql, user_role)
     if not is_allowed:
@@ -68,7 +72,7 @@ SQL QUERY:"""
             rows = result.fetchall()
             
             if not rows:
-                return f"The query returned no results. (Executed SQL: {secure_sql})"
+                return "The query returned no results."
             
             # Format results
             formatted = "\n".join([str(row) for row in rows])
