@@ -95,6 +95,8 @@ def build_agent_graph():
 
 agent = build_agent_graph()
 
+from langchain_core.messages import HumanMessage
+
 async def run_agent(query: str, user_id: str, user_role: str, thread_id: str = "default"):
     """Helper function to run the compiled graph."""
     config = {"configurable": {"thread_id": thread_id}}
@@ -103,7 +105,8 @@ async def run_agent(query: str, user_id: str, user_role: str, thread_id: str = "
         "user_id": user_id,
         "user_role": user_role,
         "iteration": 0,
-        "max_iterations": 4
+        "max_iterations": 4,
+        "messages": [HumanMessage(content=query)]
     }
     
     async for event in agent.astream_events(initial_state, config, version="v2"):

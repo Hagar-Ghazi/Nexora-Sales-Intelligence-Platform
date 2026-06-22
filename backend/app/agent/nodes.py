@@ -43,7 +43,8 @@ def safety_gate_node(state: AgentState) -> dict:
 
 @traceable(name="router_node")
 def router_node(state: AgentState) -> dict:
-    if state.get("intent") == "chitchat" or state.get("intent") == "greeting":
+    intent = state.get("intent")
+    if intent in ["greeting", "out_of_scope"]:
         return {"route": "chitchat"}
         
     llm = get_llm()
@@ -121,9 +122,10 @@ def llm_generation_node(state: AgentState) -> dict:
     llm = get_llm()
     messages = [
         ("system", "You are Nexora, an intelligent enterprise sales assistant. Answer the user's question concisely using the context provided. Do not mention that you are an AI or using context. Just answer."),
-        ("system", f"CONTEXT:\n{context}"), 
-        ("human", query)
+        ("system", f"CONTEXT:\n{context}")
     ]
+    messages.extend(state.get("messages", []))
+    
     response = llm.invoke(messages)
     answer = response.content
     
@@ -149,11 +151,17 @@ def explanation_builder_node(state: AgentState) -> dict:
 @traceable(name="direct_response_node")
 def direct_response_node(state: AgentState) -> dict:
     query = state["query"]
+    intent = state.get("intent", "")
     llm = get_llm()
-    messages = [
-        ("system", "You are Nexora, an intelligent enterprise sales assistant. Keep your answer brief and conversational."),
-        ("human", query)
-    ]
+    
+    if intent == "out_of_scope":
+        system_prompt = "You are Nexora, an intelligent enterprise sales assistant. The user has asked an out-of-scope question. Politely decline to answer it and guide them back to topics related to enterprise sales, products, or analytics."
+    else:
+        system_prompt = "You are Nexora, an intelligent enterprise sales assistant. Keep your answer brief and conversational."
+        
+    messages = [("system", system_prompt)]
+    messages.extend(state.get("messages", []))
+    
     response = llm.invoke(messages)
     answer = response.content
     return {"answer": answer, "explanation": {"type": "chitchat"}, "messages": [AIMessage(content=answer)]}
