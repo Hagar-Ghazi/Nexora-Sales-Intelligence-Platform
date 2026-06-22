@@ -155,7 +155,7 @@ def direct_response_node(state: AgentState) -> dict:
     llm = get_llm()
     
     if intent == "out_of_scope":
-        system_prompt = "You are Nexora, an intelligent enterprise sales assistant. The user has asked an out-of-scope question. Politely decline to answer it and guide them back to topics related to enterprise sales, products, or analytics."
+        system_prompt = "You are Nexora, an intelligent enterprise sales assistant. The user has asked an out-of-scope question. Briefly and politely refuse to answer it. Do not recommend or offer any alternatives."
     else:
         system_prompt = "You are Nexora, an intelligent enterprise sales assistant. Keep your answer brief and conversational."
         
