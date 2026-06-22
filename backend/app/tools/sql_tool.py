@@ -1,4 +1,5 @@
-from langchain_core.tools import tool
+import re
+from sqlalchemy import create_engine, text
 from langsmith import traceable
 from app.auth.db_permissions import (
     get_schema_for_role,
@@ -6,11 +7,14 @@ from app.auth.db_permissions import (
     inject_row_filters,
     validate_sql_safety
 )
+from app.llm.router import get_llm
+from app.config import get_settings
 
-# In a real app, this would use a LangChain SQLDatabase toolkit
-# and the ChatGroq model to generate SQL.
+def get_db_url():
+    settings = get_settings()
+    # Use the IPv4 connection pooler string that you got from Supabase
+    return f"postgresql://postgres.hmsdswtaszpgmzkqiaxe:{settings.SUPABASE_DB_PASSWORD}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
 
-@tool
 @traceable(name="sql_query_tool")
 async def sql_query(question: str, user_id: str, user_role: str) -> str:
     """
@@ -22,12 +26,28 @@ async def sql_query(question: str, user_id: str, user_role: str) -> str:
     if not schema:
         return "You do not have permission to access the database."
         
-    # Mock LLM generation step:
-    # llm = get_llm()
-    # generated_sql = llm.invoke(prompt_with_schema)
-    generated_sql = f"SELECT * FROM sales_records" # Mock
+    # Generate SQL using LLM
+    llm = get_llm()
+    prompt = f"""You are a PostgreSQL expert. Given the user's question, write a SQL query to answer it.
+Return ONLY the raw SQL query, no markdown, no explanation.
+
+DATABASE SCHEMA:
+{schema}
+
+QUESTION: {question}
+SQL QUERY:"""
     
-    # LAYER 2: Validate SQL Safety (No DROP, DELETE, etc.)
+    response = llm.invoke(prompt)
+    content = response.content
+    
+    # Robustly extract SQL from markdown blocks if the LLM ignores the "no markdown" instruction
+    match = re.search(r"```(?:sql)?\n?(.*?)\n?```", content, re.DOTALL | re.IGNORECASE)
+    if match:
+        generated_sql = match.group(1).strip()
+    else:
+        generated_sql = content.replace("```sql", "").replace("```", "").strip()
+    
+    # LAYER 2: Validate SQL Safety
     is_safe, safety_msg = validate_sql_safety(generated_sql)
     if not is_safe:
         return f"SQL Error: {safety_msg}"
@@ -40,8 +60,19 @@ async def sql_query(question: str, user_id: str, user_role: str) -> str:
     # LAYER 4: Inject Row-Level Security Filters
     secure_sql = inject_row_filters(generated_sql, user_role, user_id)
     
-    # Execution (Mocked)
-    # result = db.execute(secure_sql)
-    result = f"Mock Database Result for query: {secure_sql}"
-    
-    return result
+    # Execute Query
+    try:
+        engine = create_engine(get_db_url())
+        with engine.connect() as conn:
+            result = conn.execute(text(secure_sql))
+            rows = result.fetchall()
+            
+            if not rows:
+                return "The query returned no results."
+            
+            # Format results
+            formatted = "\n".join([str(row) for row in rows])
+            return f"Database Results:\n{formatted}"
+            
+    except Exception as e:
+        return f"Database Execution Error: {str(e)}"

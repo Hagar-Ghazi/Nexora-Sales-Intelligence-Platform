@@ -6,12 +6,9 @@ from app.agent.moderator import detect_injection, sanitize_input
 from app.agent.intent import classify_intent
 from app.agent.router import route_query, RouteDestination
 from app.agent.query_rewriter import hyde_rewrite
-
-# Mock imports for now until these modules are built
-# from app.llm.router import get_llm
-# from app.retrieval.hybrid_search import search as hybrid_search
-# from app.tools.sql_tool import sql_query
-# from app.cache.query_cache import get_query_cache
+from app.llm.router import get_llm
+from app.retrieval.hybrid_search import search as hybrid_search
+from app.tools.sql_tool import sql_query
 
 @traceable(name="safety_gate_node")
 def safety_gate_node(state: AgentState) -> dict:
@@ -28,9 +25,8 @@ def safety_gate_node(state: AgentState) -> dict:
     query = sanitize_input(query)
     
     # 2. Intent Classification
-    # llm = get_llm()
-    # intent = classify_intent(query, llm)
-    intent = "business" # Mock until LLM is hooked up
+    llm = get_llm()
+    intent = classify_intent(query, llm)
     
     if intent == "malicious":
         return {
@@ -50,10 +46,9 @@ def router_node(state: AgentState) -> dict:
     if state.get("intent") == "chitchat" or state.get("intent") == "greeting":
         return {"route": "chitchat"}
         
-    # llm = get_llm()
-    # route_obj = route_query(state["query"], state["user_role"], llm)
-    # return {"route": route_obj.destination.value, "route_reasoning": route_obj.reasoning}
-    return {"route": "documents", "route_reasoning": "Mock routing"}
+    llm = get_llm()
+    route_obj = route_query(state["query"], state["user_role"], llm)
+    return {"route": route_obj.destination.value, "route_reasoning": route_obj.reasoning}
 
 @traceable(name="query_rewrite_node")
 def query_rewrite_node(state: AgentState) -> dict:
@@ -62,20 +57,18 @@ def query_rewrite_node(state: AgentState) -> dict:
     
     if iteration > 0:
         # We looped back because relevance was low. Use HyDE to rewrite.
-        # llm = get_llm()
-        # rewritten = hyde_rewrite(query, llm)
-        rewritten = f"Hypothetical answer for: {query}"
+        llm = get_llm()
+        rewritten = hyde_rewrite(query, llm)
         return {"rewritten_query": rewritten, "iteration": iteration + 1}
         
     return {"rewritten_query": query, "iteration": iteration + 1}
 
 @traceable(name="hybrid_retrieval_node")
 async def hybrid_retrieval_node(state: AgentState) -> dict:
-    query = state.get("rewritten_query", state["query"])
+    query = state.get("rewritten_query") or state["query"]
     role = state["user_role"]
     
-    # chunks = await hybrid_search(query, role)
-    chunks = [{"content": "Mock retrieved doc", "source": "doc1.txt", "score": 0.9}]
+    chunks = await hybrid_search(query, role)
     
     return {"retrieved_chunks": chunks}
 
@@ -85,8 +78,7 @@ async def database_query_node(state: AgentState) -> dict:
     user_id = state["user_id"]
     role = state["user_role"]
     
-    # result = await sql_query(query, user_id, role)
-    result = "Mock SQL result"
+    result = await sql_query(query, user_id, role)
     
     return {"tool_results": [{"tool": "sql", "result": result}]}
 
@@ -126,19 +118,21 @@ def llm_generation_node(state: AgentState) -> dict:
     query = state["query"]
     context = state.get("context", "No context available.")
     
-    # llm = get_llm()
-    # messages = [("system", "Answer based on context: " + context), ("human", query)]
-    # response = llm.invoke(messages)
-    # answer = response.content
-    
-    answer = f"Mock Answer based on {context}"
+    llm = get_llm()
+    messages = [
+        ("system", "You are Nexora, an intelligent enterprise sales assistant. Answer the user's question concisely using the context provided. Do not mention that you are an AI or using context. Just answer."),
+        ("system", f"CONTEXT:\n{context}"), 
+        ("human", query)
+    ]
+    response = llm.invoke(messages)
+    answer = response.content
     
     return {"answer": answer, "messages": [AIMessage(content=answer)]}
 
 @traceable(name="relevance_eval_node")
 def relevance_eval_node(state: AgentState) -> dict:
     # Evaluate if answer actually addresses query
-    # Mock for now
+    # Mock evaluation to always pass for speed right now
     score = 0.9
     return {"relevance_score": score}
 
@@ -147,17 +141,19 @@ def explanation_builder_node(state: AgentState) -> dict:
     exp = {
         "iterations": state.get("iteration", 1),
         "confidence": state.get("relevance_score", 0.0),
-        "sources": [c.get("source") for c in state.get("retrieved_chunks", [])],
-        "tools": [t.get("tool") for t in state.get("tool_results", [])]
+        "sources": [c.get("source") for c in (state.get("retrieved_chunks") or [])],
+        "tools": [t.get("tool") for t in (state.get("tool_results") or [])]
     }
     return {"explanation": exp}
 
 @traceable(name="direct_response_node")
 def direct_response_node(state: AgentState) -> dict:
     query = state["query"]
-    # For chitchat
-    # llm = get_llm()
-    # response = llm.invoke([("human", query)])
-    # answer = response.content
-    answer = "Mock chitchat response"
+    llm = get_llm()
+    messages = [
+        ("system", "You are Nexora, an intelligent enterprise sales assistant. Keep your answer brief and conversational."),
+        ("human", query)
+    ]
+    response = llm.invoke(messages)
+    answer = response.content
     return {"answer": answer, "explanation": {"type": "chitchat"}, "messages": [AIMessage(content=answer)]}

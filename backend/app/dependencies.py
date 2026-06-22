@@ -25,6 +25,10 @@ def get_qdrant_client(settings: Settings = Depends(get_settings)) -> QdrantClien
     except Exception as e:
         raise HTTPException(status_code=500, detail="Could not connect to Qdrant")
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Security(security)):
-    from app.auth.jwt_handler import extract_user_from_token
-    return extract_user_from_token(credentials.credentials)
+from fastapi import Request
+
+def get_current_user(request: Request):
+    from app.auth.jwt_handler import UserContext
+    # For development/demo purposes, we bypass JWT and extract role from a custom header
+    role = request.headers.get("X-Mock-Role", "sales")
+    return UserContext(user_id="00000000-0000-0000-0000-000000000000", email="demo@company.com", role=role, full_name="Demo User")

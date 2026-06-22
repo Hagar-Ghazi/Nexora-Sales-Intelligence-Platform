@@ -65,9 +65,9 @@ DATABASE_PERMISSIONS = {
 }
 
 ALL_TABLE_SCHEMAS = {
-    "products": ["id", "name", "category", "price", "tier", "stock_quantity", "is_active", "created_at"],
-    "sales_records": ["id", "product_id", "sales_rep_id", "customer_name", "customer_email", "quantity", "unit_price", "total_amount", "region", "status", "sale_date", "created_at"],
-    "users": ["id", "email", "full_name", "role", "department", "is_active", "created_at", "last_login"],
+    "products": ["id (PRIMARY KEY, UUID)", "name", "category", "price", "tier", "stock_quantity", "is_active", "created_at"],
+    "sales_records": ["id", "product_id (FOREIGN KEY to products.id)", "sales_rep_id (FOREIGN KEY to users.id)", "customer_name", "customer_email", "quantity", "unit_price", "total_amount", "region", "status", "sale_date", "created_at"],
+    "users": ["id (PRIMARY KEY, UUID)", "email", "full_name", "role", "department", "is_active", "created_at", "last_login"],
     "feedback": ["id", "message_id", "user_id", "score", "correction_text", "feedback_type", "created_at"],
     "evaluation_scores": ["id", "message_id", "faithfulness", "answer_relevance", "context_precision", "llm_judge_grade", "llm_judge_reasoning", "evaluated_at"],
     "query_analytics": ["id", "date", "total_queries", "unique_users", "avg_latency_ms", "cache_hit_rate", "avg_faithfulness", "avg_relevance", "top_intents", "top_products_asked", "queries_by_role", "created_at"],
