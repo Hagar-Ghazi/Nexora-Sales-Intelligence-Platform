@@ -68,7 +68,7 @@ SQL QUERY:"""
             rows = result.fetchall()
             
             if not rows:
-                return "The query returned no results."
+                return f"The query returned no results. (Executed SQL: {secure_sql})"
             
             # Format results
             formatted = "\n".join([str(row) for row in rows])

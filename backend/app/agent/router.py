@@ -20,7 +20,7 @@ Your job is to decide the best source of information to answer the user's query.
 
 ROUTING RULES:
 1. 'documents': Choose this if the question is about product features, company policies, standard operating procedures, troubleshooting, or "how-to" guides.
-2. 'database': Choose this if the question asks for numbers, revenues, totals, rankings, user counts, specific sales records, or comparisons of metrics over time.
+2. 'database': Choose this if the question asks for numbers, revenues, totals, rankings, user counts, specific sales records, comparisons of metrics over time, or lists of products, users, or items.
 3. 'both': Choose this if the question requires understanding a policy/feature AND looking up live metrics/data (e.g., "What is the policy for returns, and how many returns did I have this month?").
 4. 'chitchat': Choose this for simple greetings, thanks, or completely off-topic conversation that needs no retrieval.
 

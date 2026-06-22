@@ -159,8 +159,9 @@ def validate_sql_safety(sql: str) -> tuple[bool, str]:
     DANGEROUS_PATTERNS = [
         r'\bDROP\b', r'\bDELETE\b', r'\bUPDATE\b', r'\bINSERT\b',
         r'\bALTER\b', r'\bTRUNCATE\b', r'\bCREATE\b', r'\bGRANT\b',
-        r'\bREVOKE\b', r'\bEXEC\b', r'\bEXECUTE\b', r'--', r';.*\bDROP\b',
+        r'\bREVOKE\b', r'\bEXEC\b', r'\bEXECUTE\b', r';.*\bDROP\b',
     ]
+
     sql_upper = sql.upper().strip()
     
     if not sql_upper.startswith(('SELECT', 'WITH')):

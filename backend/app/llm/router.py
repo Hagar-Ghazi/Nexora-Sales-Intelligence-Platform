@@ -6,8 +6,10 @@ from app.config import get_settings
 def get_llm():
     settings = get_settings()
     primary_llm = ChatGroq(
-        api_key="invalid_key_for_testing",
-        model_name="llama3-8b-8192",
+        api_key=settings.GROQ_API_KEY,
+        model_name=settings.PRIMARY_LLM,
         temperature=0.1
     )
     return primary_llm
+
+   

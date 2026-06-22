@@ -1,29 +1,37 @@
+from typing import List, Any
 from functools import lru_cache
-from langchain.retrievers.document_compressors import CrossEncoderReranker
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
-from langchain.retrievers import ContextualCompressionRetriever
 from app.config import get_settings
 
 @lru_cache
-def get_reranker() -> CrossEncoderReranker:
-    """
-    Returns a singleton instance of the CrossEncoderReranker.
-    
-    Why use a cross-encoder?
-    Bi-encoders (like MiniLM) map queries and docs to vectors independently, which is fast but misses 
-    nuanced relationships. Cross-encoders process the query and doc TOGETHER through the transformer,
-    allowing deep attention between the words. It's much slower, so we only run it on the top-K 
-    results retrieved by the bi-encoder/BM25 step.
-    """
+def get_reranker_model() -> HuggingFaceCrossEncoder:
     settings = get_settings()
-    model = HuggingFaceCrossEncoder(model_name=settings.RERANKER_MODEL)
-    return CrossEncoderReranker(model=model, top_n=5)
+    return HuggingFaceCrossEncoder(model_name=settings.RERANKER_MODEL)
 
-def build_reranking_retriever(base_retriever, top_n: int = 5) -> ContextualCompressionRetriever:
-    reranker = get_reranker()
-    # If a custom top_n is needed, we could instantiate a new one, but for now we reuse the singleton
-    # Note: CrossEncoderReranker's top_n is set at initialization
-    return ContextualCompressionRetriever(
-        base_compressor=reranker,
-        base_retriever=base_retriever
-    )
+class CustomRerankingRetriever(BaseRetriever):
+    base_retriever: BaseRetriever
+    top_n: int = 5
+    
+    def _get_relevant_documents(self, query: str, *, run_manager: Any = None) -> List[Document]:
+        docs = self.base_retriever.invoke(query)
+        if not docs:
+            return []
+            
+        model = get_reranker_model()
+        # Pair the query with each document content
+        pairs = [[query, doc.page_content] for doc in docs]
+        scores = model.score(pairs)
+        
+        # Attach the score to the metadata and sort
+        scored_docs = []
+        for doc, score in zip(docs, scores):
+            doc.metadata["relevance_score"] = float(score)
+            scored_docs.append((score, doc))
+            
+        scored_docs.sort(key=lambda x: x[0], reverse=True)
+        return [doc for score, doc in scored_docs[:self.top_n]]
+
+def build_reranking_retriever(base_retriever: BaseRetriever, top_n: int = 5) -> CustomRerankingRetriever:
+    return CustomRerankingRetriever(base_retriever=base_retriever, top_n=top_n)

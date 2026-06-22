@@ -7,26 +7,33 @@ class Settings(BaseSettings):
     LANGSMITH_PROJECT: str = "enterprise-agentic-rag"
     LANGCHAIN_TRACING_V2: str = "true"
 
+
     # === LLM Providers ===
     GROQ_API_KEY: str = ""
     OLLAMA_BASE_URL: str = "http://localhost:11434"
+
 
     # === Supabase ===
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_KEY: str = ""
+    SUPABASE_DB_PASSWORD: str = ""
+
 
     # === Qdrant ===
     QDRANT_URL: str = "http://localhost:6333"
+
 
     # === Upstash Redis ===
     UPSTASH_REDIS_URL: str = ""
     UPSTASH_REDIS_TOKEN: str = ""
 
+
     # === Observability ===
     AXIOM_DATASET: str = "agentic-rag"
     AXIOM_TOKEN: str = ""
     JWT_SECRET: str = "your-64-char-random-string"
+
 
     # === Models ===
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
