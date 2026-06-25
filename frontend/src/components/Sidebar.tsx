@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MessageSquare, BarChart3, Settings, LogOut, Hexagon } from 'lucide-react';
+import { MessageSquare, BarChart3, Settings, LogOut, Hexagon, History } from 'lucide-react';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -12,6 +12,7 @@ export default function Sidebar() {
 
   const navItems = [
     { name: 'Agent Chat', path: '/', icon: MessageSquare },
+    { name: 'Chat History', path: '/history', icon: History },
     { name: 'Dashboard', path: '/admin', icon: BarChart3 },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];

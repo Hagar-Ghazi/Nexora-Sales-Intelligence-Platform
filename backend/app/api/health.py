@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from app.dependencies import get_redis_client, get_supabase_client, get_qdrant_client
 from fastapi import Depends
 
-router = APIRouter(tags=["health"])
+router = APIRouter(prefix="/api", tags=["health"])
 
 @router.get("/health")
 def health_check():

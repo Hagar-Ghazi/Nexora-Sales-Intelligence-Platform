@@ -12,16 +12,22 @@ DATABASE_PERMISSIONS = {
                             "total_amount", "region", "status", "sale_date"],
                 "row_filter": "sales_rep_id = '{user_id}'",
             },
+            "users": {
+                "columns": ["full_name", "role", "department", "is_active"],
+            },
         },
-        "denied_message": "As a Sales representative, you can view product information and your own sales records. For company-wide analytics, please ask your manager.",
+        "denied_message": "As a Sales representative, you can view product information, your own sales records, and basic user counts. For company-wide analytics, please ask your manager.",
     },
     "support": {
         "allowed_tables": {
             "products": {
                 "columns": ["name", "category", "price", "tier", "stock_quantity", "is_active"],
             },
+            "users": {
+                "columns": ["full_name", "role", "department", "is_active"],
+            },
         },
-        "denied_message": "As a Support agent, you can look up product details. Sales data and analytics are restricted to Managers and Admins.",
+        "denied_message": "As a Support agent, you can look up product details and basic user counts. Sales data and analytics are restricted to Managers and Admins.",
     },
     "manager": {
         "allowed_tables": {

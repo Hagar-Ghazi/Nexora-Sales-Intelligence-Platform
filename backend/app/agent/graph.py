@@ -9,6 +9,8 @@ from app.agent.nodes import (
     hybrid_retrieval_node,
     database_query_node,
     parallel_retrieval_node,
+    web_search_node,
+    db_and_web_node,
     context_assembly_node,
     llm_generation_node,
     relevance_eval_node,
@@ -32,6 +34,8 @@ def build_agent_graph():
     workflow.add_node("hybrid_retrieval", hybrid_retrieval_node)
     workflow.add_node("database_query", database_query_node)
     workflow.add_node("parallel_retrieval", parallel_retrieval_node)
+    workflow.add_node("web_search", web_search_node)
+    workflow.add_node("db_and_web", db_and_web_node)
     workflow.add_node("context_assembly", context_assembly_node)
     workflow.add_node("llm_generation", llm_generation_node)
     workflow.add_node("relevance_eval", relevance_eval_node)
@@ -59,14 +63,18 @@ def build_agent_graph():
             "hybrid_retrieval": "hybrid_retrieval",
             "database_query": "database_query",
             "parallel_retrieval": "parallel_retrieval",
+            "web_search": "web_search",
+            "db_and_web": "db_and_web",
             "direct_response": "direct_response"
         }
     )
     
-    # Retrieval -> Context Assembly
+    # All retrieval nodes -> Context Assembly
     workflow.add_edge("hybrid_retrieval", "context_assembly")
     workflow.add_edge("database_query", "context_assembly")
     workflow.add_edge("parallel_retrieval", "context_assembly")
+    workflow.add_edge("web_search", "context_assembly")
+    workflow.add_edge("db_and_web", "context_assembly")
     
     # Assembly -> Generation -> Eval
     workflow.add_edge("context_assembly", "llm_generation")
