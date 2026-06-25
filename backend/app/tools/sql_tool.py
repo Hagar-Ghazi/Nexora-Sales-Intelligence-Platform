@@ -54,12 +54,12 @@ SQL QUERY:"""
     # LAYER 2: Validate SQL Safety
     is_safe, safety_msg = validate_sql_safety(generated_sql)
     if not is_safe:
-        return f"SQL Error: {safety_msg}"
-
+        return f"This operation is not permitted. I can only read and retrieve data from the database. I cannot insert, update, or delete records. (Reason: {safety_msg})"
+        
     # LAYER 3: Check Role Permissions
     is_allowed, perm_msg = validate_query_permissions(generated_sql, user_role)
     if not is_allowed:
-        return f"Permission Denied: {perm_msg}"
+        return f"Access Denied: {perm_msg}"
         
     # LAYER 4: Inject Row-Level Security Filters
     secure_sql = inject_row_filters(generated_sql, user_role, user_id)
@@ -79,4 +79,4 @@ SQL QUERY:"""
             return f"Database Results:\n{formatted}"
             
     except Exception as e:
-        return f"Database Execution Error: {str(e)}"
+        return f"⚠️ Database connection issue: {str(e)}"

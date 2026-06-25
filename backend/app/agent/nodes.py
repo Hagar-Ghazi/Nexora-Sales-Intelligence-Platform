@@ -107,16 +107,18 @@ def context_assembly_node(state: AgentState) -> dict:
             context_parts.append(f"Source {idx+1} ({chunk.get('source')}): {chunk.get('content')}")
             
     tools = state.get("tool_results", [])
-    valid_tools = False
     if tools:
         for tool in tools:
             res = tool.get("result", "")
-            # Filter out empty results and errors from becoming "context"
-            if res and "The query returned no results" not in res and "Permission Denied" not in res and "Error:" not in res:
-                if not valid_tools:
-                    context_parts.append("--- DATABASE/DATA ---")
-                    valid_tools = True
-                context_parts.append(f"[{tool.get('tool')}] Result: {res}")
+            if not res:
+                continue
+            # Filter out ONLY empty results — these add no value
+            if "The query returned no results" in res:
+                continue
+            # Pass everything else through (including errors and permission denials)
+            # so the LLM can explain WHY the query was rejected
+            context_parts.append("--- DATABASE/DATA ---")
+            context_parts.append(f"[{tool.get('tool')}] Result: {res}")
                 
     if not context_parts:
         return {"context": "No context available."}

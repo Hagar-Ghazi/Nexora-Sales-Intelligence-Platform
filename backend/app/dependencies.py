@@ -4,8 +4,9 @@ from supabase import create_client, Client
 from redis import Redis
 from qdrant_client import QdrantClient
 from app.config import Settings, get_settings
+from fastapi import Request
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 def get_supabase_client(settings: Settings = Depends(get_settings)) -> Client:
     try:
@@ -25,10 +26,11 @@ def get_qdrant_client(settings: Settings = Depends(get_settings)) -> QdrantClien
     except Exception as e:
         raise HTTPException(status_code=500, detail="Could not connect to Qdrant")
 
-from fastapi import Request
-
-def get_current_user(request: Request):
-    from app.auth.jwt_handler import UserContext
-    # For development/demo purposes, we bypass JWT and extract role from a custom header
-    role = request.headers.get("X-Mock-Role", "sales")
-    return UserContext(user_id="00000000-0000-0000-0000-000000000000", email="demo@company.com", role=role, full_name="Demo User")
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    from app.auth.jwt_handler import extract_user_from_token
+    if not credentials:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization token is missing or invalid"
+        )
+    return extract_user_from_token(credentials.credentials)

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize LangSmith tracing or other startup events here
+    # Initialize startup events here
     print("Starting up Enterprise Agentic RAG backend...")
     yield
     print("Shutting down...")
@@ -25,12 +25,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
 from app.api.documents import router as documents_router
 from app.api.feedback import router as feedback_router
 from app.api.users import router as users_router
 from app.api.health import router as health_router
 
+app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(documents_router)
 app.include_router(feedback_router)

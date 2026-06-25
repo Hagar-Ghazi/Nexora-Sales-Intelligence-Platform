@@ -3,21 +3,50 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MessageSquare, BarChart3, Settings, LogOut, Hexagon } from 'lucide-react';
+import { MessageSquare, BarChart3, LogOut, Hexagon } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
 
-  if (pathname === '/login') return null;
+  // If on login page or loading, do not show sidebar
+  if (pathname === '/login' || !user) return null;
+
+  // Filter navigation items based on role
+  const showDashboard = user.role === 'admin' || user.role === 'manager';
 
   const navItems = [
     { name: 'Agent Chat', path: '/', icon: MessageSquare },
-    { name: 'Dashboard', path: '/admin', icon: BarChart3 },
-    { name: 'Settings', path: '/settings', icon: Settings },
+    ...(showDashboard ? [{ name: 'Dashboard', path: '/admin', icon: BarChart3 }] : []),
   ];
 
+  // Helper to extract initials
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  // Get color styling for the user's role badge (sidebar version)
+  const getRoleBadgeColor = (role: string) => {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return 'text-red-400 border-red-500/20 bg-red-500/10';
+      case 'manager':
+        return 'text-purple-400 border-purple-500/20 bg-purple-500/10';
+      case 'sales':
+        return 'text-blue-400 border-blue-500/20 bg-blue-500/10';
+      case 'support':
+        return 'text-green-400 border-green-500/20 bg-green-500/10';
+      default:
+        return 'text-gray-400 border-gray-500/20 bg-gray-500/10';
+    }
+  };
+
   return (
-    <div className="w-64 h-screen glass border-r border-white/5 flex flex-col justify-between shrink-0 relative z-20">
+    <div className="w-64 h-screen glass border-r border-white/5 flex flex-col justify-between shrink-0 relative z-20 bg-[#070A13]">
       <div>
         {/* Brand */}
         <div className="h-20 flex items-center px-6 border-b border-white/5 mb-6">
@@ -56,19 +85,27 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      {/* User Profile */}
+      {/* User Profile Card */}
       <div className="p-4 border-t border-white/5">
         <div className="bg-white/5 rounded-xl p-4 border border-white/5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-xs shadow-inner">
-              AS
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold text-xs shadow-inner shrink-0">
+              {getInitials(user.full_name)}
             </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-white">Alice Smith</span>
-              <span className="text-xs text-gray-400">Sales Rep</span>
+            <div className="flex flex-col overflow-hidden">
+              <span className="text-sm font-semibold text-white truncate max-w-[110px]" title={user.full_name}>
+                {user.full_name}
+              </span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border inline-block w-fit mt-0.5 ${getRoleBadgeColor(user.role)}`}>
+                {user.role}
+              </span>
             </div>
           </div>
-          <button className="text-gray-500 hover:text-white transition-colors">
+          <button 
+            onClick={logout}
+            title="Log Out"
+            className="text-gray-500 hover:text-white transition-colors p-1.5 hover:bg-white/5 rounded-lg shrink-0"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
