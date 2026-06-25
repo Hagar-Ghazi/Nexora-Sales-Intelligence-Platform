@@ -31,9 +31,11 @@ def ingest_document(file_path: str, file_type: str, access_roles: list[str], doc
     collections = get_target_collections(access_roles)
     
     # 5. Embed and store in Qdrant
+    from app.config import get_settings
+    settings = get_settings()
     embeddings = get_embeddings()
     for collection in collections:
-        store = get_vector_store(collection, embeddings, "http://localhost:6333")
+        store = get_vector_store(collection, embeddings, settings.QDRANT_URL)
         store.add_documents(chunks)
         
     # 6. Build/Update BM25 index

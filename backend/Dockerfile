@@ -1,6 +1,6 @@
 FROM python:3.12-slim
 
-# Install system dependencies for unstructured
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libmagic-dev \
     poppler-utils \
@@ -10,7 +10,15 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install uv first
+RUN pip install uv
+
+# Install PyTorch CPU-only with uv
+RUN uv pip install --system --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install other requirements with uv
+RUN uv pip install --system --no-cache-dir -r requirements.txt
 
 COPY . .
 

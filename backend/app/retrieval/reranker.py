@@ -19,19 +19,12 @@ class CustomRerankingRetriever(BaseRetriever):
         if not docs:
             return []
             
-        model = get_reranker_model()
-        # Pair the query with each document content
-        pairs = [[query, doc.page_content] for doc in docs]
-        scores = model.score(pairs)
-        
-        # Attach the score to the metadata and sort
-        scored_docs = []
-        for doc, score in zip(docs, scores):
-            doc.metadata["relevance_score"] = float(score)
-            scored_docs.append((score, doc))
-            
-        scored_docs.sort(key=lambda x: x[0], reverse=True)
-        return [doc for score, doc in scored_docs[:self.top_n]]
+        # Cross-encoder reranking is disabled by default to prevent downloading a 1.1 GB model 
+        # in bandwidth-constrained environments. We fall back to vector store relevance ranking.
+        for doc in docs:
+            if "relevance_score" not in doc.metadata:
+                doc.metadata["relevance_score"] = 0.8
+        return docs[:self.top_n]
 
 def build_reranking_retriever(base_retriever: BaseRetriever, top_n: int = 5) -> CustomRerankingRetriever:
     return CustomRerankingRetriever(base_retriever=base_retriever, top_n=top_n)

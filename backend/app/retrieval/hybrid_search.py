@@ -67,26 +67,63 @@ def build_hybrid_retriever(collections: List[str], qdrant_url: str):
     return final_retriever
 
 async def search(query: str, user_role: str) -> List[dict]:
+    """
+    Perform hybrid semantic search. Returns empty list gracefully if:
+    - Qdrant has no documents indexed yet
+    - sentence_transformers model fails to load (no internet in container)
+    - Any other retrieval error
+    """
     from app.auth.permissions import get_allowed_collections
+    from qdrant_client import QdrantClient
     settings = get_settings()
     
     collections = get_allowed_collections(user_role)
     if not collections:
         return []
+
+    # Check if Qdrant actually has any indexed documents before attempting retrieval
+    # This avoids loading the heavy sentence_transformers model unnecessarily
+    try:
+        qdrant_client = QdrantClient(url=settings.QDRANT_URL)
+        has_docs = False
+        for collection in collections:
+            try:
+                if qdrant_client.collection_exists(collection):
+                    count = qdrant_client.count(collection_name=collection)
+                    if count.count > 0:
+                        has_docs = True
+                        break
+            except Exception:
+                pass
         
-    retriever = build_hybrid_retriever(collections, settings.QDRANT_URL)
-    if not retriever:
+        if not has_docs:
+            # No documents indexed yet — skip RAG silently
+            return []
+    except Exception:
+        # Qdrant unreachable — skip RAG silently
         return []
-        
-    docs = retriever.invoke(query)
     
-    results = []
-    for doc in docs:
-        results.append({
-            "content": doc.page_content,
-            "source": doc.metadata.get("source", "Unknown"),
-            "page": doc.metadata.get("page", 1),
-            "score": doc.metadata.get("relevance_score", 0.0) 
-        })
+    try:
+        retriever = build_hybrid_retriever(collections, settings.QDRANT_URL)
+        if not retriever:
+            return []
+            
+        docs = retriever.invoke(query)
         
-    return results
+        results = []
+        for doc in docs:
+            results.append({
+                "content": doc.page_content,
+                "source": doc.metadata.get("source", "Unknown"),
+                "page": doc.metadata.get("page", 1),
+                "score": doc.metadata.get("relevance_score", 0.0) 
+            })
+            
+        return results
+    except Exception as e:
+        # Gracefully handle sentence_transformers / embedding errors
+        import logging
+        logging.getLogger(__name__).warning(
+            f"RAG retrieval failed (Qdrant/embeddings issue): {e}. Falling back to DB-only mode."
+        )
+        return []

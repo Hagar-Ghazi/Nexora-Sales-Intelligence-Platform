@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     RERANKER_MODEL: str = "BAAI/bge-reranker-base"
     PRIMARY_LLM: str = "llama-3.3-70b-versatile"
-    FALLBACK_LLM: str = "mixtral-8x7b-32768"
+    FALLBACK_LLM: str = "llama-3.1-8b-instant"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8', extra="ignore")
 

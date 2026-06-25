@@ -16,10 +16,14 @@ def route_after_router(state: AgentState) -> str:
         return "database_query"
     elif route == "both":
         return "parallel_retrieval"
+    elif route == "web_search":
+        return "web_search"
+    elif route == "db_and_web":
+        return "db_and_web"
     elif route == "chitchat":
         return "direct_response"
         
-    return "hybrid_retrieval" # Fallback
+    return "hybrid_retrieval"  # Fallback
 
 def route_after_eval(state: AgentState) -> str:
     """Decide if we need to loop back and rewrite the query based on relevance."""
