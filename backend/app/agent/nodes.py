@@ -48,6 +48,18 @@ def safety_gate_node(state: AgentState) -> dict:
             "route": "blocked"
         }
         
+    import langsmith as ls
+    rt = ls.get_current_run_tree()
+    if rt:
+        root_rt = rt
+        while root_rt.parent_run:
+            root_rt = root_rt.parent_run
+        if root_rt.tags is None:
+            root_rt.tags = []
+        if intent and intent not in root_rt.tags:
+            root_rt.tags.append(intent)
+        root_rt.metadata["user_intent"] = intent
+
     return {
         "query": query,
         "intent": intent,
@@ -63,6 +75,16 @@ def router_node(state: AgentState) -> dict:
     history = format_chat_history(state.get("messages", []))
     llm = get_llm()
     route_obj = route_query(state["query"], state["user_role"], history, llm)
+    
+    import langsmith as ls
+    rt = ls.get_current_run_tree()
+    if rt:
+        root_rt = rt
+        while root_rt.parent_run:
+            root_rt = root_rt.parent_run
+        root_rt.metadata["router_destination"] = route_obj.destination.value
+        root_rt.metadata["router_reasoning"] = route_obj.reasoning
+
     return {"route": route_obj.destination.value, "route_reasoning": route_obj.reasoning}
 
 @traceable(name="query_rewrite_node")
@@ -85,6 +107,23 @@ async def hybrid_retrieval_node(state: AgentState) -> dict:
     
     chunks = await hybrid_search(query, role)
     
+    import langsmith as ls
+    rt = ls.get_current_run_tree()
+    if rt:
+        root_rt = rt
+        while root_rt.parent_run:
+            root_rt = root_rt.parent_run
+        if root_rt.tags is None:
+            root_rt.tags = []
+        if "rag" not in root_rt.tags:
+            root_rt.tags.append("rag")
+        root_rt.metadata["routing_strategy"] = "rag_retrieval"
+        doc_names = list(set([chunk.get("source") for chunk in chunks if chunk.get("source")]))
+        if doc_names:
+            root_rt.metadata["retrieved_documents"] = doc_names
+        rt.tags = rt.tags or []
+        rt.tags.append("hybrid_search")
+        
     return {"retrieved_chunks": chunks}
 
 @traceable(name="database_query_node")
@@ -95,6 +134,20 @@ async def database_query_node(state: AgentState) -> dict:
     
     result = await sql_query(query, user_id, role)
     
+    import langsmith as ls
+    rt = ls.get_current_run_tree()
+    if rt:
+        root_rt = rt
+        while root_rt.parent_run:
+            root_rt = root_rt.parent_run
+        if root_rt.tags is None:
+            root_rt.tags = []
+        if "database" not in root_rt.tags:
+            root_rt.tags.append("database")
+        root_rt.metadata["routing_strategy"] = "database_query"
+        rt.tags = rt.tags or []
+        rt.tags.append("database_query")
+        
     return {"tool_results": [{"tool": "sql", "result": result}]}
 
 @traceable(name="parallel_retrieval_node")
@@ -105,6 +158,18 @@ async def parallel_retrieval_node(state: AgentState) -> dict:
     
     docs_res, db_res = await asyncio.gather(docs_task, db_task)
     
+    import langsmith as ls
+    rt = ls.get_current_run_tree()
+    if rt:
+        root_rt = rt
+        while root_rt.parent_run:
+            root_rt = root_rt.parent_run
+        if root_rt.tags is None:
+            root_rt.tags = []
+        if "parallel" not in root_rt.tags:
+            root_rt.tags.append("parallel")
+        root_rt.metadata["routing_strategy"] = "parallel_retrieval"
+
     return {
         "retrieved_chunks": docs_res.get("retrieved_chunks", []),
         "tool_results": db_res.get("tool_results", [])
@@ -189,6 +254,18 @@ def direct_response_node(state: AgentState) -> dict:
     intent = state.get("intent", "")
     route = state.get("route", "")
     llm = get_llm()
+    
+    import langsmith as ls
+    rt = ls.get_current_run_tree()
+    if rt:
+        root_rt = rt
+        while root_rt.parent_run:
+            root_rt = root_rt.parent_run
+        if root_rt.tags is None:
+            root_rt.tags = []
+        if "direct_response" not in root_rt.tags:
+            root_rt.tags.append("direct_response")
+        root_rt.metadata["routing_strategy"] = "direct_response"
     
     # If the Intent Classifier caught it, OR the Router deemed it an off-topic chitchat (and it's not a greeting)
     if intent == "out_of_scope" or (route == "chitchat" and intent != "greeting"):
