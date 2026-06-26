@@ -21,6 +21,7 @@ interface AuthContextType {
   logout: () => void;
   registerUser: (email: string, password_plain: string, full_name: string, role: string) => Promise<any>;
   updateUser: (user_id: string, email: string, full_name: string, role: string, password_plain?: string) => Promise<any>;
+  deleteUser: (user_id: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -215,8 +216,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return await res.json();
   };
 
+  const deleteUser = async (user_id: string) => {
+    if (!token) throw new Error("Not authenticated");
+    
+    const res = await fetch(`/api/users/${user_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ detail: "Failed to delete user" }));
+      throw new Error(errData.detail || "Failed to delete user.");
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, setupRequired, checkSetupStatus, login, setupAdmin, logout, registerUser, updateUser }}>
+    <AuthContext.Provider value={{ user, token, loading, setupRequired, checkSetupStatus, login, setupAdmin, logout, registerUser, updateUser, deleteUser }}>
       {children}
     </AuthContext.Provider>
   );

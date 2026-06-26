@@ -76,3 +76,13 @@ def update_user_role(user_id: str, role: str, user: UserContext = Depends(get_cu
         
     user_store.save_users(users)
     return {"message": "Role updated"}
+
+@router.delete("/{user_id}")
+def delete_existing_user(user_id: str, user: UserContext = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Permission denied")
+    try:
+        deleted = user_store.delete_user(user_id)
+        return {"message": "User deleted successfully", "user_id": deleted["user_id"]}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))

@@ -152,6 +152,39 @@ def update_user(user_id: str, email: str, full_name: str, role: str, password_pl
     sync_user_to_db(found_user)
     return found_user
 
+def delete_user(user_id: str) -> dict:
+    users = load_users()
+    found_user = None
+    for u in users:
+        if u["user_id"] == user_id:
+            found_user = u
+            break
+            
+    if not found_user:
+        raise ValueError("User not found")
+        
+    # Remove from local list
+    users = [u for u in users if u["user_id"] != user_id]
+    save_users(users)
+    
+    # Delete from PostgreSQL database users table
+    from sqlalchemy import create_engine, text
+    import urllib.parse
+    from app.config import get_settings
+    try:
+        settings = get_settings()
+        if settings.SUPABASE_DB_PASSWORD:
+            pwd = urllib.parse.quote_plus(settings.SUPABASE_DB_PASSWORD)
+            db_url = f"postgresql://postgres.hmsdswtaszpgmzkqiaxe:{pwd}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
+            engine = create_engine(db_url)
+            with engine.connect() as conn:
+                conn.execute(text("DELETE FROM users WHERE email = :email"), {"email": found_user["email"]})
+                conn.commit()
+    except Exception as e:
+        print(f"Error deleting user from DB: {str(e)}")
+        
+    return found_user
+
 def list_users() -> list[dict]:
     # Return users but remove password hash for security
     users = load_users()

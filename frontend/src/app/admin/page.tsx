@@ -5,12 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BarChart3, Users, Shield, Activity, HardDrive, Plus, X, 
   UserPlus, AlertCircle, Loader2, Edit2, RefreshCw, Bell, 
-  Cpu, Layers, Globe, TrendingUp, Server, CheckCircle2, FileText 
+  Cpu, Layers, Globe, TrendingUp, Server, CheckCircle2, FileText, Trash2 
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AdminDashboard() {
-  const { user, token, registerUser, updateUser } = useAuth();
+  const { user, token, registerUser, updateUser, deleteUser } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   
   // Dashboard Metrics State
@@ -217,6 +217,23 @@ export default function AdminDashboard() {
       setModalError(err.message || "Failed to update user.");
     } finally {
       setModalSubmitting(false);
+    }
+  };
+
+  const handleDeleteClick = async (userId: string, fullName: string) => {
+    if (userId === user?.user_id) {
+      alert("You cannot delete your own account.");
+      return;
+    }
+    
+    if (window.confirm(`Are you sure you want to permanently delete user "${fullName}"?`)) {
+      try {
+        await deleteUser(userId);
+        // Remove from local list
+        setUsers(prev => prev.filter(u => u.user_id !== userId));
+      } catch (err: any) {
+        alert(err.message || "Failed to delete user.");
+      }
     }
   };
 
@@ -686,6 +703,12 @@ export default function AdminDashboard() {
                           className="p-1.5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all inline-flex items-center gap-1.5 text-xs font-medium border border-transparent hover:border-white/10"
                         >
                           <Edit2 className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(u.user_id, u.full_name)}
+                          className="p-1.5 hover:bg-red-500/10 rounded-lg text-red-400 hover:text-red-300 transition-all inline-flex items-center gap-1.5 text-xs font-medium border border-transparent hover:border-red-500/10 ml-2"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Delete
                         </button>
                       </td>
                     </tr>
