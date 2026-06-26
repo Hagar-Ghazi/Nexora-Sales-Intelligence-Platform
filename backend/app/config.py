@@ -1,5 +1,12 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from backend/.env into os.environ
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.abspath(os.path.join(cur_dir, "..", ".env"))
+load_dotenv(dotenv_path)
 
 class Settings(BaseSettings):
     # === LangSmith (free tier: 5000 traces/month) ===
