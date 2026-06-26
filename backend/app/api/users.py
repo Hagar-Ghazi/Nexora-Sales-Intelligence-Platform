@@ -23,7 +23,7 @@ def get_me(user: UserContext = Depends(get_current_user)):
 
 @router.get("")
 def list_users(user: UserContext = Depends(get_current_user)):
-    if user.role not in ["admin", "manager"]:
+    if user.role != "admin":
         raise HTTPException(status_code=403, detail="Permission denied")
     return {"users": user_store.list_users()}
 

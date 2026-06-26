@@ -33,7 +33,7 @@ export default function AdminDashboard() {
 
   // Load users from backend when active tab changes to users
   useEffect(() => {
-    if (activeTab === 'users' && token) {
+    if (activeTab === 'users' && token && user?.role === 'admin') {
       const fetchUsers = async () => {
         setLoadingUsers(true);
         try {
@@ -161,25 +161,27 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tab Selector */}
-        <div className="flex bg-white/5 border border-white/10 p-1 rounded-2xl w-fit">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === 'overview' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
-              activeTab === 'users' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            User Management
-          </button>
-        </div>
+        {user.role === 'admin' && (
+          <div className="flex bg-white/5 border border-white/10 p-1 rounded-2xl w-fit">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'overview' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeTab === 'users' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              User Management
+            </button>
+          </div>
+        )}
       </header>
 
       {activeTab === 'overview' && (
@@ -224,7 +226,7 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {activeTab === 'users' && (
+      {activeTab === 'users' && user.role === 'admin' && (
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
