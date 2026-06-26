@@ -22,44 +22,10 @@ def init_user_store():
     # Ensure directory exists
     os.makedirs(os.path.dirname(USERS_FILE), exist_ok=True)
     
-    # If file doesn't exist, create it with pre-seeded users
+    # Start completely empty as requested
     if not os.path.exists(USERS_FILE):
-        pre_seeded = [
-            {
-                "user_id": str(uuid.uuid4()),
-                "email": "admin@nexora.com",
-                "password_hash": hash_password("Nx_2026_Sec_Adm!"),
-                "full_name": "Admin User",
-                "role": "admin",
-                "status": "active"
-            },
-            {
-                "user_id": str(uuid.uuid4()),
-                "email": "sarah@nexora.com",
-                "password_hash": hash_password("Nx_2026_Sec_Mgr!"),
-                "full_name": "Sarah Manager",
-                "role": "manager",
-                "status": "active"
-            },
-            {
-                "user_id": str(uuid.uuid4()),
-                "email": "ali@nexora.com",
-                "password_hash": hash_password("Nx_2026_Sec_Sal!"),
-                "full_name": "Ali Sales",
-                "role": "sales",
-                "status": "active"
-            },
-            {
-                "user_id": str(uuid.uuid4()),
-                "email": "omar@nexora.com",
-                "password_hash": hash_password("Nx_2026_Sec_Spt!"),
-                "full_name": "Omar Support",
-                "role": "support",
-                "status": "active"
-            }
-        ]
         with open(USERS_FILE, "w", encoding="utf-8") as f:
-            json.dump(pre_seeded, f, indent=4)
+            json.dump([], f, indent=4)
 
 # Initialize store on import
 init_user_store()
@@ -112,6 +78,32 @@ def create_user(email: str, password_plain: str, full_name: str, role: str) -> d
     users.append(new_user)
     save_users(users)
     return new_user
+
+def update_user(user_id: str, email: str, full_name: str, role: str, password_plain: str | None = None) -> dict:
+    users = load_users()
+    email_clean = email.lower().strip()
+    
+    # Check if another user has this email
+    for user in users:
+        if user["user_id"] != user_id and user["email"].lower().strip() == email_clean:
+            raise ValueError("Another user with this email already exists")
+            
+    found_user = None
+    for user in users:
+        if user["user_id"] == user_id:
+            user["email"] = email_clean
+            user["full_name"] = full_name
+            user["role"] = role.lower()
+            if password_plain:
+                user["password_hash"] = hash_password(password_plain)
+            found_user = user
+            break
+            
+    if not found_user:
+        raise ValueError("User not found")
+        
+    save_users(users)
+    return found_user
 
 def list_users() -> list[dict]:
     # Return users but remove password hash for security

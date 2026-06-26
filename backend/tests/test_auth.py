@@ -1,5 +1,8 @@
 import pytest
-from app.auth.user_store import hash_password, verify_password, get_user_by_email, list_users, create_user
+import os
+import json
+from app.auth import user_store
+from app.auth.user_store import hash_password, verify_password, get_user_by_email, list_users, create_user, update_user
 from app.auth.jwt_handler import create_jwt, decode_jwt, extract_user_from_token
 
 def test_password_hashing():
@@ -32,17 +35,27 @@ def test_jwt_flow():
     assert context.role == role
     assert context.full_name == full_name
 
-def test_user_store():
-    # Preseeded user check
-    admin = get_user_by_email("admin@nexora.com")
-    assert admin is not None
-    assert admin["role"] == "admin"
-    assert verify_password("Nx_2026_Sec_Adm!", admin["password_hash"]) is True
+def test_user_store_operations():
+    # Clear current file to start fresh
+    if os.path.exists(user_store.USERS_FILE):
+        os.remove(user_store.USERS_FILE)
+    user_store.init_user_store()
     
-    # List users
-    users = list_users()
-    assert len(users) >= 4
-    for u in users:
-        assert "password_hash" not in u
-        assert "email" in u
-        assert "role" in u
+    # Verify empty setup
+    assert len(list_users()) == 0
+    
+    # Create user
+    created = create_user("test@nexora.com", "Nx_Pass123!", "Test Name", "sales")
+    assert created["email"] == "test@nexora.com"
+    assert created["role"] == "sales"
+    assert created["full_name"] == "Test Name"
+    
+    # Update user details
+    updated = update_user(created["user_id"], "updated@nexora.com", "New Name", "manager", "Nx_NewPass123!")
+    assert updated["email"] == "updated@nexora.com"
+    assert updated["full_name"] == "New Name"
+    assert updated["role"] == "manager"
+    
+    # Verify verify_password with the new password works
+    user_data = get_user_by_email("updated@nexora.com")
+    assert verify_password("Nx_NewPass123!", user_data["password_hash"]) is True

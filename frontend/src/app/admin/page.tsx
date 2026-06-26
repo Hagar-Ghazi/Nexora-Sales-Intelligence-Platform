@@ -2,23 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, Users, Shield, Activity, HardDrive, Plus, X, UserPlus, AlertCircle, Loader2 } from 'lucide-react';
+import { BarChart3, Users, Shield, Activity, HardDrive, Plus, X, UserPlus, AlertCircle, Loader2, Edit2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AdminDashboard() {
-  const { user, token, registerUser } = useAuth();
+  const { user, token, registerUser, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   
   // User Management State
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showEditUserModal, setShowEditUserModal] = useState(false);
   
   // Add User Form State
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('sales');
+  
+  // Edit User Form State
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editRole, setEditRole] = useState('sales');
+
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalSubmitting, setModalSubmitting] = useState(false);
 
@@ -84,6 +93,45 @@ export default function AdminDashboard() {
       setNewRole('sales');
     } catch (err: any) {
       setModalError(err.message || "Failed to create user.");
+    } finally {
+      setModalSubmitting(false);
+    }
+  };
+
+  const handleEditClick = (u: any) => {
+    setEditingUserId(u.user_id);
+    setEditName(u.full_name);
+    setEditEmail(u.email);
+    setEditRole(u.role);
+    setEditPassword('');
+    setModalError(null);
+    setShowEditUserModal(true);
+  };
+
+  const handleEditUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setModalError(null);
+
+    if (editPassword.trim() && editPassword.length < 8) {
+      setModalError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    setModalSubmitting(true);
+    try {
+      const updated = await updateUser(
+        editingUserId!,
+        editEmail,
+        editName,
+        editRole,
+        editPassword.trim() ? editPassword : undefined
+      );
+
+      // Update in local state list
+      setUsers(prev => prev.map(u => u.user_id === editingUserId ? updated : u));
+      setShowEditUserModal(false);
+    } catch (err: any) {
+      setModalError(err.message || "Failed to update user.");
     } finally {
       setModalSubmitting(false);
     }
@@ -216,6 +264,7 @@ export default function AdminDashboard() {
                     <th className="py-3 px-4">Email</th>
                     <th className="py-3 px-4">Role</th>
                     <th className="py-3 px-4">Status</th>
+                    {user.role === 'admin' && <th className="py-3 px-4 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-sm text-gray-300">
@@ -233,11 +282,21 @@ export default function AdminDashboard() {
                           <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
                         </span>
                       </td>
+                      {user.role === 'admin' && (
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => handleEditClick(u)}
+                            className="p-1.5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all inline-flex items-center gap-1.5 text-xs font-medium border border-transparent hover:border-white/10"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" /> Edit
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="py-8 text-center text-gray-500">
+                      <td colSpan={user.role === 'admin' ? 5 : 4} className="py-8 text-center text-gray-500">
                         No users registered.
                       </td>
                     </tr>
@@ -253,7 +312,6 @@ export default function AdminDashboard() {
       <AnimatePresence>
         {showAddUserModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -262,7 +320,6 @@ export default function AdminDashboard() {
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             />
 
-            {/* Modal Body */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -315,13 +372,13 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1">Temporary Password</label>
+                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1">Password</label>
                   <input
                     type="text"
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Must be min 8 chars (e.g. Nx_Secret123!)"
+                    placeholder="Must be min 8 characters"
                     className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono"
                   />
                 </div>
@@ -353,11 +410,121 @@ export default function AdminDashboard() {
                     disabled={modalSubmitting}
                     className="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-lg hover:shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all border border-blue-500/30"
                   >
-                    {modalSubmitting ? (
-                      <>Creating User...</>
-                    ) : (
-                      <>Create User</>
-                    )}
+                    {modalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Create User
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {showEditUserModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowEditUserModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[#0E1322] border border-white/10 rounded-3xl max-w-md w-full p-6 relative z-10 shadow-2xl"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-blue-500" />
+                  <h3 className="text-lg font-bold text-white">Modify User Profile</h3>
+                </div>
+                <button
+                  onClick={() => setShowEditUserModal(false)}
+                  className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {modalError && (
+                <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-200 p-3.5 rounded-xl mb-4 text-xs">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{modalError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleEditUserSubmit} className="space-y-4">
+                <div>
+                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="John Doe"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="john@nexora.com"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1">
+                    New Password <span className="text-gray-600 font-normal">(Leave blank to keep current)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    placeholder="Enter new password if changing"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-gray-400 font-semibold uppercase tracking-wider block mb-1">System Role</label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full bg-[#0E1322] border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  >
+                    <option value="admin">Admin (Full Control)</option>
+                    <option value="manager">Manager (Read & Telemetry)</option>
+                    <option value="sales">Sales Representative (RLS Restricted)</option>
+                    <option value="support">Customer Support (Limited Access)</option>
+                  </select>
+                </div>
+
+                <div className="pt-2 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditUserModal(false)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold border border-white/10 text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={modalSubmitting}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5 shadow-lg hover:shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all border border-blue-500/30"
+                  >
+                    {modalSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Save Changes
                   </button>
                 </div>
               </form>

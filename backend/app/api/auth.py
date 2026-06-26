@@ -16,6 +16,56 @@ class RegisterRequest(BaseModel):
     full_name: str
     role: str
 
+class SetupRequest(BaseModel):
+    email: str
+    password: str = Field(..., min_length=8)
+    full_name: str
+
+@router.get("/setup-status")
+def setup_status():
+    users = user_store.load_users()
+    return {"setup_required": len(users) == 0}
+
+@router.post("/setup")
+def setup(payload: SetupRequest):
+    users = user_store.load_users()
+    if len(users) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="System has already been set up."
+        )
+        
+    try:
+        new_user = user_store.create_user(
+            email=payload.email,
+            password_plain=payload.password,
+            full_name=payload.full_name,
+            role="admin"
+        )
+        
+        token = create_jwt(
+            user_id=new_user["user_id"],
+            email=new_user["email"],
+            role=new_user["role"],
+            full_name=new_user["full_name"]
+        )
+        
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {
+                "user_id": new_user["user_id"],
+                "email": new_user["email"],
+                "role": new_user["role"],
+                "full_name": new_user["full_name"]
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
 @router.post("/login")
 def login(payload: LoginRequest):
     user = user_store.get_user_by_email(payload.email)
@@ -37,7 +87,6 @@ def login(payload: LoginRequest):
             detail="Invalid email or password"
         )
         
-    # Create JWT
     token = create_jwt(
         user_id=user["user_id"],
         email=user["email"],
@@ -58,14 +107,13 @@ def login(payload: LoginRequest):
 
 @router.post("/register")
 def register(payload: RegisterRequest, current_user: UserContext = Depends(get_current_user)):
-    # Crucial Requirement: Only Admin can create users
+    # Only Admin can create users
     if current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Admin can create users"
         )
         
-    # Validate role
     allowed_roles = ["admin", "manager", "sales", "support"]
     if payload.role.lower() not in allowed_roles:
         raise HTTPException(
@@ -80,7 +128,6 @@ def register(payload: RegisterRequest, current_user: UserContext = Depends(get_c
             full_name=payload.full_name,
             role=payload.role.lower()
         )
-        # Exclude password hash from response
         return {
             "user_id": new_user["user_id"],
             "email": new_user["email"],
