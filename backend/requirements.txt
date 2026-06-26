@@ -29,3 +29,5 @@ sqlparse
 ruff
 pytest
 pytest-asyncio
+bcrypt
+
