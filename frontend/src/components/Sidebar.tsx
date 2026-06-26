@@ -14,7 +14,7 @@ export default function Sidebar() {
   if (pathname === '/login' || !user) return null;
 
   // Filter navigation items based on role
-  const showDashboard = user.role === 'admin' || user.role === 'manager';
+  const showDashboard = ['admin', 'manager', 'support', 'sales'].includes(user?.role?.toLowerCase() || '');
 
   const navItems = [
     { name: 'Agent Chat', path: '/', icon: MessageSquare },

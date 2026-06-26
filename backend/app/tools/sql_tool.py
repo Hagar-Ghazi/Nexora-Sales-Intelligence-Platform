@@ -10,10 +10,13 @@ from app.auth.db_permissions import (
 from app.llm.router import get_llm
 from app.config import get_settings
 
+import urllib.parse
+
 def get_db_url():
     settings = get_settings()
+    pwd = urllib.parse.quote_plus(settings.SUPABASE_DB_PASSWORD)
     # Use the IPv4 connection pooler string that you got from Supabase
-    return f"postgresql://postgres.hmsdswtaszpgmzkqiaxe:{settings.SUPABASE_DB_PASSWORD}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
+    return f"postgresql://postgres.hmsdswtaszpgmzkqiaxe:{pwd}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
 
 @traceable(name="sql_query_tool")
 async def sql_query(question: str, user_id: str, user_role: str) -> str:

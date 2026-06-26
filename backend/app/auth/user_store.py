@@ -58,6 +58,51 @@ def get_user_by_id(user_id: str) -> dict | None:
             return user
     return None
 
+def sync_user_to_db(user_dict: dict):
+    from sqlalchemy import create_engine, text
+    import urllib.parse
+    from app.config import get_settings
+    try:
+        settings = get_settings()
+        if not settings.SUPABASE_DB_PASSWORD:
+            print("Skipping user DB sync: SUPABASE_DB_PASSWORD not set.")
+            return
+        pwd = urllib.parse.quote_plus(settings.SUPABASE_DB_PASSWORD)
+        db_url = f"postgresql://postgres.hmsdswtaszpgmzkqiaxe:{pwd}@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
+        engine = create_engine(db_url)
+        with engine.connect() as conn:
+            # Check if user already exists
+            res = conn.execute(
+                text("SELECT id FROM users WHERE email = :email"),
+                {"email": user_dict["email"]}
+            ).fetchone()
+            if res:
+                # Update
+                conn.execute(
+                    text("UPDATE users SET full_name = :full_name, role = :role, is_active = :is_active WHERE email = :email"),
+                    {
+                        "full_name": user_dict["full_name"],
+                        "role": user_dict["role"],
+                        "is_active": user_dict.get("status", "active") == "active",
+                        "email": user_dict["email"]
+                    }
+                )
+            else:
+                # Insert
+                conn.execute(
+                    text("INSERT INTO users (id, email, full_name, role, is_active) VALUES (:id, :email, :full_name, :role, :is_active)"),
+                    {
+                        "id": user_dict["user_id"],
+                        "email": user_dict["email"],
+                        "full_name": user_dict["full_name"],
+                        "role": user_dict["role"],
+                        "is_active": user_dict.get("status", "active") == "active"
+                    }
+                )
+            conn.commit()
+    except Exception as e:
+        print(f"Error syncing user to DB: {str(e)}")
+
 def create_user(email: str, password_plain: str, full_name: str, role: str) -> dict:
     users = load_users()
     email_clean = email.lower().strip()
@@ -77,6 +122,7 @@ def create_user(email: str, password_plain: str, full_name: str, role: str) -> d
     }
     users.append(new_user)
     save_users(users)
+    sync_user_to_db(new_user)
     return new_user
 
 def update_user(user_id: str, email: str, full_name: str, role: str, password_plain: str | None = None) -> dict:
@@ -103,6 +149,7 @@ def update_user(user_id: str, email: str, full_name: str, role: str, password_pl
         raise ValueError("User not found")
         
     save_users(users)
+    sync_user_to_db(found_user)
     return found_user
 
 def list_users() -> list[dict]:

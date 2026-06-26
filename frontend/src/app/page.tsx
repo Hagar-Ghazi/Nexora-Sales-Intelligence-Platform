@@ -19,6 +19,42 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [hasUnread, setHasUnread] = useState(true);
+
+  const fetchNotificationsData = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/dashboard/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch notifications:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (token) {
+      fetchNotificationsData();
+      const interval = setInterval(fetchNotificationsData, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [token]);
+
+  const toggleNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (!showNotifications) {
+      setHasUnread(false);
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -174,10 +210,60 @@ export default function Home() {
             </span>
           </div>
 
-          <button className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-gray-400 hover:text-white relative">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500"></span>
-          </button>
+          <div className="relative">
+            <button 
+              onClick={toggleNotifications}
+              className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-gray-400 hover:text-white relative"
+            >
+              <Bell className="w-4 h-4" />
+              {hasUnread && notifications.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+              )}
+            </button>
+
+            {/* Notification Dropdown Popover */}
+            <AnimatePresence>
+              {showNotifications && (
+                <div className="absolute right-0 mt-3 w-80 bg-[#0E1322] border border-white/10 rounded-2xl p-4 shadow-2xl z-50 max-h-96 overflow-y-auto backdrop-blur-xl">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
+                    <span className="font-semibold text-sm text-white">Notifications</span>
+                    <button 
+                      onClick={() => {
+                        setNotifications([]);
+                        setHasUnread(false);
+                      }} 
+                      className="text-[10px] text-gray-500 hover:text-white transition-colors"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {notifications.length === 0 ? (
+                      <p className="text-xs text-gray-500 text-center py-4">No new alerts</p>
+                    ) : (
+                      notifications.map((notif) => (
+                        <div key={notif.id} className="p-2.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <span className={`text-xs font-semibold ${
+                              notif.type === 'alert' ? 'text-red-400' :
+                              notif.type === 'warning' ? 'text-yellow-400' :
+                              notif.type === 'success' ? 'text-green-400' : 'text-blue-400'
+                            }`}>
+                              {notif.title}
+                            </span>
+                            <span className="text-[9px] text-gray-500">
+                              {new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 leading-normal">{notif.message}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </header>
 
