@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     AXIOM_DATASET: str = "agentic-rag"
     AXIOM_TOKEN: str = ""
     JWT_SECRET: str = "your-64-char-random-string"
+    SLACK_WEBHOOK_URL: str = ""
 
 
     # === Models ===

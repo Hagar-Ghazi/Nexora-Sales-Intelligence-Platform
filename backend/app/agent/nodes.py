@@ -10,13 +10,26 @@ from app.llm.router import get_llm
 from app.retrieval.hybrid_search import search as hybrid_search
 from app.tools.sql_tool import sql_query
 from app.tools.web_search_tool import web_search
+from app.observability.alerts import send_security_alert
 
 @traceable(name="safety_gate_node")
-def safety_gate_node(state: AgentState) -> dict:
+async def safety_gate_node(state: AgentState) -> dict:
     # 1. Moderation
     query = state["query"]
     is_injection, pattern = detect_injection(query)
     if is_injection:
+        # Schedule the alert in the running Uvicorn event loop
+        try:
+            asyncio.create_task(send_security_alert(
+                state.get("user_id", "unknown"),
+                state.get("user_role", "unknown"),
+                query,
+                f"Matches restricted pattern: {pattern}"
+            ))
+        except Exception as e:
+            import sys
+            print(f"Error scheduling security alert: {e}", file=sys.stderr)
+            
         return {
             "is_blocked": True,
             "block_message": f"Security Alert: Your query matches a restricted pattern ({pattern}). Request blocked.",
@@ -27,9 +40,22 @@ def safety_gate_node(state: AgentState) -> dict:
     
     # 2. Intent Classification
     llm = get_llm()
-    intent = classify_intent(query, llm)
+    # Run the synchronous LangChain invocation in a worker thread to keep the Uvicorn loop responsive
+    intent = await asyncio.to_thread(classify_intent, query, llm)
     
     if intent == "malicious":
+        # Schedule the alert in the running Uvicorn event loop
+        try:
+            asyncio.create_task(send_security_alert(
+                state.get("user_id", "unknown"),
+                state.get("user_role", "unknown"),
+                query,
+                "Intent classified as malicious by LLM"
+            ))
+        except Exception as e:
+            import sys
+            print(f"Error scheduling security alert: {e}", file=sys.stderr)
+            
         return {
             "is_blocked": True,
             "block_message": "Security Alert: Query classified as malicious.",
