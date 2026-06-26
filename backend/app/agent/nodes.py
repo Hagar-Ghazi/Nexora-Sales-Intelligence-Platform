@@ -10,6 +10,16 @@ from app.llm.router import get_llm
 from app.retrieval.hybrid_search import search as hybrid_search
 from app.tools.sql_tool import sql_query
 
+def format_chat_history(messages) -> str:
+    if not messages:
+        return "No history."
+    history_lines = []
+    # Loop over all messages except the last one (which represents the current query)
+    for msg in messages[:-1]:
+        role_label = "User" if msg.type == "human" else "Assistant"
+        history_lines.append(f"{role_label}: {msg.content}")
+    return "\n".join(history_lines) if history_lines else "No history."
+
 @traceable(name="safety_gate_node")
 def safety_gate_node(state: AgentState) -> dict:
     # 1. Moderation
@@ -24,9 +34,12 @@ def safety_gate_node(state: AgentState) -> dict:
         
     query = sanitize_input(query)
     
+    # Extract history
+    history = format_chat_history(state.get("messages", []))
+    
     # 2. Intent Classification
     llm = get_llm()
-    intent = classify_intent(query, llm)
+    intent = classify_intent(query, history, llm)
     
     if intent == "malicious":
         return {
@@ -47,8 +60,9 @@ def router_node(state: AgentState) -> dict:
     if intent in ["greeting", "out_of_scope"]:
         return {"route": "chitchat"}
         
+    history = format_chat_history(state.get("messages", []))
     llm = get_llm()
-    route_obj = route_query(state["query"], state["user_role"], llm)
+    route_obj = route_query(state["query"], state["user_role"], history, llm)
     return {"route": route_obj.destination.value, "route_reasoning": route_obj.reasoning}
 
 @traceable(name="query_rewrite_node")

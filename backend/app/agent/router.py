@@ -24,6 +24,9 @@ ROUTING RULES:
 3. 'both': Choose this if the question requires understanding a policy/feature AND looking up live metrics/data (e.g., "What is the policy for returns, and how many returns did I have this month?").
 4. 'chitchat': Choose this for simple greetings, thanks, or completely off-topic conversation that needs no retrieval.
 
+CONVERSATION HISTORY:
+{history}
+
 User Role: {user_role}
 
 Think carefully about the reasoning, then select the destination."""),
@@ -31,10 +34,10 @@ Think carefully about the reasoning, then select the destination."""),
 ])
 
 @traceable(name="route_query")
-def route_query(query: str, user_role: str, llm) -> QueryRoute:
+def route_query(query: str, user_role: str, history: str, llm) -> QueryRoute:
     chain = ROUTER_PROMPT | llm.with_structured_output(QueryRoute)
     try:
-        return chain.invoke({"query": query, "user_role": user_role})
+        return chain.invoke({"query": query, "user_role": user_role, "history": history})
     except Exception as e:
         # Fallback to documents
         return QueryRoute(
