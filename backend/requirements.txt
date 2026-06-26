@@ -30,4 +30,6 @@ ruff
 pytest
 pytest-asyncio
 bcrypt
+psycopg2-binary
+
 
